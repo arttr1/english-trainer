@@ -2,3 +2,5 @@ data/profile.json
 .base-ast/
 .base-ast-cache/
 .DS_Store
+__pycache__/
+*.pyc

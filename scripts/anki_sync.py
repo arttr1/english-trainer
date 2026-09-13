@@ -75,6 +75,16 @@ def ensure_custom_model():
     the English answer into the question itself — the example spoils the
     thing being tested. This model keeps Example in its own field and
     only reveals it on the answer side of both cards.
+
+    Templates use plain <br><br> to separate Back from Example, NOT a
+    <div>. AMGI's native SwiftUI card renderer only recognizes block
+    boundaries at CLOSING tags (</div>, </p>, </center>) and at <br>/<hr>
+    — never at an opening tag like <div class="...">. A <div>-wrapped
+    Example silently lost its boundary there and ran together with the
+    preceding text on the question side, with no space, on some cards.
+    <br><br> is on AMGI's allowlist and is recognized correctly in both
+    directions. Checked against AMGI's source (antigluten/amgi) directly,
+    not assumed.
     """
     existing, error = invoke("modelNames")
     if error:
@@ -85,17 +95,17 @@ def ensure_custom_model():
         "createModel",
         modelName=CUSTOM_MODEL,
         inOrderFields=["Front", "Back", "Example"],
-        css=".card { font-family: arial; font-size: 20px; text-align: center; color: black; background-color: white; } .example { font-size: 16px; color: #555; margin-top: 12px; }",
+        css=".card { font-family: arial; font-size: 20px; text-align: center; color: black; background-color: white; }",
         cardTemplates=[
             {
                 "Name": "EN -> RU",
                 "Front": "{{Front}}",
-                "Back": "{{FrontSide}}<hr id=\"answer\">{{Back}}{{#Example}}<div class=\"example\">{{Example}}</div>{{/Example}}"
+                "Back": "{{FrontSide}}<hr id=\"answer\">{{Back}}{{#Example}}<br><br>{{Example}}{{/Example}}"
             },
             {
                 "Name": "RU -> EN",
                 "Front": "{{Back}}",
-                "Back": "{{FrontSide}}<hr id=\"answer\">{{Front}}{{#Example}}<div class=\"example\">{{Example}}</div>{{/Example}}"
+                "Back": "{{FrontSide}}<hr id=\"answer\">{{Front}}{{#Example}}<br><br>{{Example}}{{/Example}}"
             }
         ]
     )
