@@ -83,8 +83,19 @@ def ensure_custom_model():
     Example silently lost its boundary there and ran together with the
     preceding text on the question side, with no space, on some cards.
     <br><br> is on AMGI's allowlist and is recognized correctly in both
-    directions. Checked against AMGI's source (antigluten/amgi) directly,
-    not assumed.
+    directions.
+
+    The <hr> between {{FrontSide}} and the answer is plain <hr>, with NO
+    id/class/attributes — AMGI's boundary regex for <hr> is `<hr\s*/?>`,
+    which only matches whitespace before the closing `>`. `<hr id="answer">`
+    (Anki's own default template convention) does NOT match that regex, so
+    AMGI silently failed to treat it as a boundary at all and ran the whole
+    answer together with the front side into one unbroken block, e.g.
+    "to accomplishвыполнить, достичь, осуществить". Never add attributes to
+    <hr> in this model's templates.
+
+    Checked against AMGI's actual source (antigluten/amgi:
+    Sources/AmgiCardWeb/NativeCardContent.swift) both times, not assumed.
     """
     existing, error = invoke("modelNames")
     if error:
@@ -100,12 +111,12 @@ def ensure_custom_model():
             {
                 "Name": "EN -> RU",
                 "Front": "{{Front}}",
-                "Back": "{{FrontSide}}<hr id=\"answer\">{{Back}}{{#Example}}<br><br>{{Example}}{{/Example}}"
+                "Back": "{{FrontSide}}<hr>{{Back}}{{#Example}}<br><br>{{Example}}{{/Example}}"
             },
             {
                 "Name": "RU -> EN",
                 "Front": "{{Back}}",
-                "Back": "{{FrontSide}}<hr id=\"answer\">{{Front}}{{#Example}}<br><br>{{Example}}{{/Example}}"
+                "Back": "{{FrontSide}}<hr>{{Front}}{{#Example}}<br><br>{{Example}}{{/Example}}"
             }
         ]
     )
