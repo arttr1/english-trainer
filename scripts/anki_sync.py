@@ -10,14 +10,20 @@ Anki note ID so profile.py can record it (anki-mark-word / anki-mark-mistake).
 
 Usage:
     python3 anki_sync.py ping
-    python3 anki_sync.py add-basic --deck "English" --front "obsolete" --back "устаревший<br><br>Example: This API is obsolete." [--tags tag1,tag2] [--reversed]
+    python3 anki_sync.py add-basic --deck "English" --front "obsolete" --back "устаревший" --example "This API is obsolete." [--tags tag1,tag2] [--reversed]
     python3 anki_sync.py add-cloze --deck "English" --text "The model started to {{c1::overfit}} after epoch 40." --back-extra "overfit — переобучаться" [--tags tag1,tag2]
     python3 anki_sync.py add-batch --file cards.json   # bulk add, see format below
 
 add-batch expects a JSON file: a list of objects, each either
-    {"type": "basic", "front": "...", "back": "...", "reversed": true, "tags": [...]}
+    {"type": "basic", "front": "...", "back": "...", "example": "...", "reversed": true, "tags": [...]}
 or
     {"type": "cloze", "text": "...", "back_extra": "...", "tags": [...]}
+
+For reversed basic cards, "example" MUST be its own field, not appended into
+"back" — see ensure_custom_model()'s docstring below for why: the stock
+reversed Basic model leaks the example (and the answer inside it) into the
+RU->EN question side. Non-reversed cards fall back to the stock "Basic"
+model and "example" is safely folded into the Back field there instead.
 
 All output is JSON on stdout: {"status": "ok", "note_id": 12345} per card,
 or {"status": "error", "message": "..."} — including "duplicate" for cards
@@ -57,12 +63,59 @@ def cmd_ping():
     print(json.dumps({"status": "ok", "anki_connect_version": result}, ensure_ascii=False))
 
 
-def build_basic_note(deck, front, back, reversed_card=False, tags=None):
-    model = "Basic (and reversed card)" if reversed_card else "Basic"
+CUSTOM_MODEL = "Basic RU-EN with Example"
+
+
+def ensure_custom_model():
+    """Create the custom note type if it doesn't exist yet.
+
+    Why not the stock "Basic (and reversed card)": its Card 2 (RU->EN)
+    template shows the whole Back field as the question. If an example
+    sentence is packed into Back alongside the translation, Card 2 leaks
+    the English answer into the question itself — the example spoils the
+    thing being tested. This model keeps Example in its own field and
+    only reveals it on the answer side of both cards.
+    """
+    existing, error = invoke("modelNames")
+    if error:
+        return
+    if CUSTOM_MODEL in existing:
+        return
+    invoke(
+        "createModel",
+        modelName=CUSTOM_MODEL,
+        inOrderFields=["Front", "Back", "Example"],
+        css=".card { font-family: arial; font-size: 20px; text-align: center; color: black; background-color: white; } .example { font-size: 16px; color: #555; margin-top: 12px; }",
+        cardTemplates=[
+            {
+                "Name": "EN -> RU",
+                "Front": "{{Front}}",
+                "Back": "{{FrontSide}}<hr id=\"answer\">{{Back}}{{#Example}}<div class=\"example\">{{Example}}</div>{{/Example}}"
+            },
+            {
+                "Name": "RU -> EN",
+                "Front": "{{Back}}",
+                "Back": "{{FrontSide}}<hr id=\"answer\">{{Front}}{{#Example}}<div class=\"example\">{{Example}}</div>{{/Example}}"
+            }
+        ]
+    )
+
+
+def build_basic_note(deck, front, back, example="", reversed_card=False, tags=None):
+    if reversed_card:
+        ensure_custom_model()
+        return {
+            "deckName": deck,
+            "modelName": CUSTOM_MODEL,
+            "fields": {"Front": front, "Back": back, "Example": example},
+            "options": {"allowDuplicate": False},
+            "tags": tags or []
+        }
+    combined_back = back + (f"<br><br>Example: {example}" if example else "")
     return {
         "deckName": deck,
-        "modelName": model,
-        "fields": {"Front": front, "Back": back},
+        "modelName": "Basic",
+        "fields": {"Front": front, "Back": combined_back},
         "options": {"allowDuplicate": False},
         "tags": tags or []
     }
@@ -93,6 +146,7 @@ def add_note(note):
 def cmd_add_basic(args):
     deck = DEFAULT_DECK
     front = back = None
+    example = ""
     reversed_card = False
     tags = []
     i = 0
@@ -103,6 +157,8 @@ def cmd_add_basic(args):
             front = args[i + 1]; i += 2
         elif args[i] == "--back":
             back = args[i + 1]; i += 2
+        elif args[i] == "--example":
+            example = args[i + 1]; i += 2
         elif args[i] == "--tags":
             tags = [t.strip() for t in args[i + 1].split(",") if t.strip()]; i += 2
         elif args[i] == "--reversed":
@@ -110,9 +166,9 @@ def cmd_add_basic(args):
         else:
             i += 1
     if not front or not back:
-        print(json.dumps({"status": "error", "message": "usage: add-basic --front X --back Y [--deck D] [--tags a,b] [--reversed]"}, ensure_ascii=False))
+        print(json.dumps({"status": "error", "message": "usage: add-basic --front X --back Y [--example Z] [--deck D] [--tags a,b] [--reversed]"}, ensure_ascii=False))
         sys.exit(1)
-    add_note(build_basic_note(deck, front, back, reversed_card, tags))
+    add_note(build_basic_note(deck, front, back, example, reversed_card, tags))
 
 
 def cmd_add_cloze(args):
@@ -146,7 +202,7 @@ def cmd_add_batch(path):
         deck = c.get("deck", DEFAULT_DECK)
         tags = c.get("tags", [])
         if c["type"] == "basic":
-            notes.append(build_basic_note(deck, c["front"], c["back"], c.get("reversed", False), tags))
+            notes.append(build_basic_note(deck, c["front"], c["back"], c.get("example", ""), c.get("reversed", False), tags))
         elif c["type"] == "cloze":
             notes.append(build_cloze_note(deck, c["text"], c.get("back_extra", ""), tags))
         else:

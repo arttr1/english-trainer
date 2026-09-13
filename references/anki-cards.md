@@ -18,10 +18,12 @@ If `python3 scripts/anki_sync.py ping` fails, Anki Desktop probably isn't runnin
 
 The user wants both formats mixed, not one or the other:
 
-- **Basic (and reversed card)** — for standalone vocabulary: front is the English word (+ pronunciation), back is the Russian translation + an example sentence. The "reversed" variant automatically also generates a RU→EN card from the same note, which is exactly the bidirectional review the user asked for. Use this for most vocabulary.
+- **Basic reversed, custom model "Basic RU-EN with Example"** — for standalone vocabulary: Front is the English word (+ pronunciation), Back is the Russian translation, Example is a separate field with a natural example sentence. `anki_sync.py`'s `--reversed` flag uses this model automatically (and creates it via AnkiConnect on first use if it doesn't exist yet) — never pass `--reversed` while also stuffing the example into `--back`. Use this for most vocabulary.
 - **Cloze** — for a word learned *in context* (e.g. harvested from tech-reading, or a grammar-mistake pattern), where testing recall inside a real sentence is more valuable than an isolated word→translation pair. Put the target word/phrase as `{{c1::...}}` in the sentence; put the translation + any note in "Back Extra".
 
 Rule of thumb: word came from a themed vocab list or was quizzed in isolation → Basic reversed. Word/phrase came from a real sentence (an article, a mistake example, a cloze drill you already ran) → Cloze, reusing that sentence.
+
+**Do not use the stock "Basic (and reversed card)" note type.** Its Card 2 (RU→EN) template renders the *entire* Back field as the question — so if Back holds `translation<br><br>Example: <English sentence containing the answer>`, Card 2 shows the English answer right there in the question, spoiling itself before the user even tries to recall it. This was caught and fixed once already (all affected cards migrated to the custom model) — don't reintroduce it. Always pass the example as its own `--example` (CLI) / `"example"` (batch JSON) field, never appended into `back`.
 
 ## What becomes a card — three sources, all in scope
 
@@ -34,7 +36,8 @@ This returns vocab entries with no `anki_note_id` yet — i.e. never pushed. Don
 
 For each word, build:
 - **Front:** `word /IPA/ (russian-letters, stress marked)` — reuse the pronunciation format from `vocabulary.md`, don't invent a new one.
-- **Back:** Russian translation, blank line, then `Example: <a natural sentence>`, blank line, `Topic: <the word's topic field>`. Use `<br>` for line breaks (Anki fields are HTML).
+- **Back:** Russian translation (keep it to the translation — don't fold the example in here for reversed cards, see the warning above).
+- **Example:** a natural example sentence, ideally mentioning the word's topic if it fits naturally rather than appending "Topic: X" as a separate line.
 
 ### 2. New words from tech-reading
 When `tech-reading.md`'s vocabulary-harvest step pulls words from a real article/doc, and the user wants them in Anki too, prefer **Cloze** using the actual sentence from the source material (or a close paraphrase if the original is long) — this preserves the real context, which is the whole point of harvesting from reading rather than a word list.
@@ -55,7 +58,7 @@ Only make a mistake card for a category worth drilling repeatedly (count ≥ 2, 
 2. Check Anki is reachable: `python3 scripts/anki_sync.py ping`. If it fails, stop and tell the user.
 3. For a handful of cards, add them one at a time:
    ```bash
-   python3 scripts/anki_sync.py add-basic --front "..." --back "..." --tags "vocab,<topic>" --reversed
+   python3 scripts/anki_sync.py add-basic --front "..." --back "..." --example "..." --tags "vocab,<topic>" --reversed
    python3 scripts/anki_sync.py add-cloze --text "...{{c1::word}}..." --back-extra "..." --tags "vocab,<topic>"
    ```
    For a batch (e.g. pushing a whole backlog), write a JSON file to the skill's scratch area and use `add-batch --file <path>` instead of many individual calls — check the format in `anki_sync.py`'s docstring.

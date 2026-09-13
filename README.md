@@ -72,7 +72,7 @@ english-trainer/
 python3 scripts/profile.py anki-pending --kind vocab
 
 # добавить одну карточку
-python3 scripts/anki_sync.py add-basic --front "obsolete" --back "устаревший" --tags "vocab" --reversed
+python3 scripts/anki_sync.py add-basic --front "obsolete" --back "устаревший" --example "This API is obsolete." --tags "vocab" --reversed
 python3 scripts/anki_sync.py add-cloze --text "The model started to {{c1::overfit}} after epoch 40." --back-extra "overfit — переобучаться"
 
 # массово из JSON-файла (см. формат в docstring anki_sync.py)
@@ -95,6 +95,7 @@ python3 scripts/profile.py show
 
 ## Известные грабли
 
+- **Пример в reversed-карточке спойлерит ответ** — если положить `Example: ...` внутрь поля Back у стандартной модели "Basic (and reversed card)", обратная карточка (RU→EN) покажет всё поле Back как вопрос — то есть пример с английским ответом внутри увидит сразу же, до попытки вспомнить. Скилл использует для этого свою модель `Basic RU-EN with Example` с отдельным полем Example, видимым только на стороне ответа у обеих карточек — `anki_sync.py` создаёт её сам при первом обращении. Не используй стандартную reversed-модель для карточек с примером.
 - **Anki Desktop зависает на "Tools → Add-ons"** — если это случилось сразу после установки, попробуй переустановить свежий `.dmg`/`.exe` с [официального сайта](https://apps.ankiweb.net/) поверх — известная проблема Qt WebEngine на некоторых системах, переустановка обычно чинит.
 - **AnkiConnect недоступен** — Anki Desktop должен быть реально запущен (свёрнут — ок, закрыт — не ок) в момент, когда скилл пытается что-то залить.
 - **AMGI не в App Store** — только собранный `.ipa` из [релизов](https://github.com/antigluten/amgi/releases) (unsigned), нужен сайдлодинг (LiveContainer/AltStore/TrollStore и т.п.). Проще и без гимнастики — платный официальный [AnkiMobile](https://apps.apple.com/app/id373493387).
