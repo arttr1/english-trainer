@@ -1,0 +1,4 @@
+data/profile.json
+.base-ast/
+.base-ast-cache/
+.DS_Store

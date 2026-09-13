@@ -1,0 +1,22 @@
+{
+  "created_at": null,
+  "updated_at": null,
+  "levels": {
+    "overall": "unknown",
+    "reading": "unknown",
+    "listening": "unknown",
+    "writing": "unknown",
+    "speaking": "unknown",
+    "grammar": "unknown",
+    "vocabulary": "unknown"
+  },
+  "feedback_language": "en-with-ru-on-request",
+  "mistakes": [],
+  "vocabulary": [],
+  "sessions": [],
+  "stats": {
+    "total_sessions": 0,
+    "total_words_tracked": 0,
+    "total_mistakes_logged": 0
+  }
+}
